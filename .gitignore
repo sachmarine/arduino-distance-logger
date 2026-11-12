@@ -1,0 +1,16 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+
+# Debug logs
+*.log
+
+# VS Code settings
+.vscode/
+
+# Generated graph
+graph.png
