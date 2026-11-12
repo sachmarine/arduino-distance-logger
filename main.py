@@ -5,11 +5,27 @@ from dataclasses import dataclass, field
 from bakery import assert_equal
 import time
 import os
-import drafter
 from drafter import *
 import matplotlib.pyplot as plt
 import numpy as np
 import serial
+import random
+
+set_website_title("Arduino Distance Logger")
+
+set_site_information(
+    author="Sachchit Shankar",
+    description="An Arduino Distance Logger that collects distance readings, analyzes data, and displays graphs.",
+    sources="Drafter, NumPy, and Matplotlib documentation.",
+    planning=[
+        "CS1 Final Project 0_ Pick a Problem (1).pdf",
+        "_CS1 Final Project 1_ Design.pdf"
+    ],
+    links=["https://github.com/sachmarine/arduino-distance-logger"]
+)
+
+hide_debug_information()
+set_website_framed(False)
 
 
 """This program essentially consumes telemetry data from an arduino in bytes,
@@ -18,7 +34,6 @@ The arduino has an ultrasonic sensor wired to it,
 that provides thousands of data points per second. The data is converted into arrays and then plotted."""
 
 
-# defining dataclasses and drafter initialization
 
 @dataclass
 class SensorReading:
@@ -36,7 +51,6 @@ class State:
     graph_style: str = "Scatter"
 
 
-# Here we are calculating the line of BEST FIT using NumPy linear regression
 
 def calculate_linear_regression(
     time_arr: list[float], dist_arr: list[float]
@@ -47,12 +61,16 @@ def calculate_linear_regression(
     t = np.array(time_arr)
     d = np.array(dist_arr)
 
+    valid = (d >= 5) & (d <= 100)
+
+    t = t[valid]
+    d = d[valid]
+
     m, b = np.polyfit(t, d, 1)
 
     return m, b
 
 
-# HOME PAGE
 
 @route("/")
 def index(state: State) -> Page:
@@ -73,7 +91,6 @@ def index(state: State) -> Page:
     )
 
 
-# CONFIGURATION PAGE
 
 @route("/config")
 def config_page(state: State) -> Page:
@@ -103,7 +120,6 @@ def config_page(state: State) -> Page:
     )
 
 
-# DATA COLLECTION PAGE
 
 @route("/run")
 def run_logger(
@@ -121,14 +137,11 @@ def run_logger(
     state.show_data_log = show_data_log
     state.graph_style = graph_style
 
-    # Make sure the duration is positive
 
     if state.duration <= 0:
         state.duration = 5.0
 
     start_time = float(time.time())
-
-    # Try connecting to the Arduino
 
     try:
         arduino = serial.Serial("COM5", 9600)
@@ -137,27 +150,22 @@ def run_logger(
         arduino = None
         print("Arduino connection failed. Using simulation.")
 
-    # Lists to store the data
 
     time_array = []
     distances = []
 
-    # Check if the Arduino is connected
 
     if arduino is None or not arduino.is_open:
 
-        # Simulation if Arduino is not connected
 
-        time.sleep(1)
+       time.sleep(1)
+       for i in range(1, int(state.duration) + 1):
 
-        for i in range(1, int(state.duration) + 1):
-
-            time_array.append(float(i))
-            distances.append(12.5 + (i * 1.8))
+        time_array.append(float(i))
+        distances.append(random.randint(10, 15))
 
     else:
 
-        # Collect data from the Arduino
 
         for i in range(1, int(state.duration) + 1):
 
@@ -182,14 +190,12 @@ def run_logger(
 
         arduino.close()
 
-    # Make sure there are enough readings for a graph
 
     if len(distances) < 2:
 
         time_array = [1.0, 2.0, 3.0]
         distances = [10.0, 14.0, 18.0]
 
-    # Store the readings
 
     state.readings = []
 
@@ -199,7 +205,6 @@ def run_logger(
             SensorReading(timestamp=t, distance=d)
         )
 
-    # Calculate the linear regression
 
     m, b = calculate_linear_regression(time_array, distances)
 
@@ -235,14 +240,13 @@ def run_logger(
         predicted_line,
         color="red",
         linestyle="--",
-        label="Fit"
+        label=f"y = {m:.2f}x+ {b:.2f} "
     )
 
     plt.xlabel("Time (s)")
     plt.ylabel("Distance (cm)")
     plt.legend()
 
-    # Save the graph
 
     state.graph_path = "graph.png"
     print(os.getcwd())
@@ -254,7 +258,6 @@ def run_logger(
     plt.close()
     print("Graph saved successfully!")
 
-    # Update the status message
 
     state.status_message = (
         f"Collected {len(state.readings)} points successfully!"
@@ -263,7 +266,6 @@ def run_logger(
     return results_page(state)
 
 
-# RESULTS PAGE
 
 @route("/results")
 def results_page(state: State) -> Page:
@@ -282,13 +284,21 @@ def results_page(state: State) -> Page:
 
             reading_paragraphs.append(Paragraph(text))
 
+    if os.path.exists(state.graph_path):
+        show_picture = Image(Picture.from_file(state.graph_path))
+    else:
+        show_picture = "❌"
+
+
+
+
     return Page(
         state,
         [
             Header("Results & Graph", level=1),
             Paragraph(state.status_message),
 
-            Image(Picture.from_file(state.graph_path)),
+            show_picture,
 
             *(
                 [Header("Recorded Data Log", level=2)]
@@ -372,8 +382,7 @@ if __name__ == "__main__":
     start_server(State())
 
 
-assert_equal(calculate_linear_regression([1, 2, 3], [2, 4, 6]), (2.0, 0.0))
-
+assert_equal(calculate_linear_regression([1, 2, 3], [10, 20, 30]), (10.0, 0.0))
 assert_equal(calculate_linear_regression([1, 2, 3], [3, 5, 7]), (2.0, 1.0))
 
 assert_equal(calculate_linear_regression([1, 2, 3], [5, 5, 5]), (0.0, 5.0))
