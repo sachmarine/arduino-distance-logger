@@ -1,52 +1,52 @@
 {
-    "collected_at": "2026-11-19T11:16:58.221882-05:00",
+    "collected_at": "2026-11-19T11:24:57.603492-05:00",
     "port": "COM5",
     "baud_rate": 9600,
     "duration_seconds": 10,
     "readings": [
         {
-            "timestamp": 0.05,
-            "distance": 27.25
+            "timestamp": 0.03,
+            "distance": 26.08
         },
         {
             "timestamp": 1.02,
-            "distance": 23.04
+            "distance": 25.21
         },
         {
-            "timestamp": 2.05,
-            "distance": 19.21
+            "timestamp": 2.03,
+            "distance": 24.02
         },
         {
             "timestamp": 3.02,
-            "distance": 50.19
+            "distance": 17.04
         },
         {
             "timestamp": 4.03,
-            "distance": 16.08
+            "distance": 13.71
         },
         {
-            "timestamp": 5.0,
-            "distance": 20.6
+            "timestamp": 5.05,
+            "distance": 10.45
         },
         {
-            "timestamp": 6.03,
-            "distance": 17.7
+            "timestamp": 6.0,
+            "distance": 13.14
         },
         {
-            "timestamp": 7.0,
-            "distance": 15.07
+            "timestamp": 7.02,
+            "distance": 18.66
         },
         {
-            "timestamp": 8.02,
-            "distance": 10.1
+            "timestamp": 8.0,
+            "distance": 25.98
         },
         {
-            "timestamp": 9.02,
-            "distance": 6.17
+            "timestamp": 9.03,
+            "distance": 44.97
         },
         {
-            "timestamp": 10.02,
-            "distance": 5.53
+            "timestamp": 10.03,
+            "distance": 37.13
         }
     ]
 }
