@@ -31,7 +31,7 @@ jobs:
 
       - name: Build the site
         run: |
-          uvx --with numpy --with matplotlib --with pyserial drafter main.py --compile --output-directory _site --production
+          uvx --with numpy --with matplotlib --with pyserial drafter main.py --compile --output-directory _site --production --additional-paths latest_data.json --additional-paths latest_graph.png
           touch _site/.nojekyll
 
       - uses: actions/upload-pages-artifact@main

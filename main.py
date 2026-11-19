@@ -1,10 +1,9 @@
 
-# all my import statements
-
 from dataclasses import dataclass, field
 from bakery import assert_equal
 import time
 import os
+import json
 from drafter import *
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,7 +33,6 @@ The arduino has an ultrasonic sensor wired to it,
 that provides thousands of data points per second. The data is converted into arrays and then plotted."""
 
 
-
 @dataclass
 class SensorReading:
     timestamp: float
@@ -51,12 +49,10 @@ class State:
     graph_style: str = "Scatter"
 
 
-
 def calculate_linear_regression(
     time_arr: list[float], dist_arr: list[float]
 ) -> tuple[float, float]:
     """Here we are calculating the line of BEST FIT using NumPy linear regression, using time and distance data"""
-
 
     t = np.array(time_arr)
     d = np.array(dist_arr)
@@ -71,6 +67,43 @@ def calculate_linear_regression(
     return m, b
 
 
+# LOAD THE LATEST UPLOADED ARDUINO SESSION
+
+def latest_session_content():
+
+    try:
+        with open("latest_data.json", "r", encoding="utf-8") as file:
+            data = json.load(file)
+
+        content = [
+            Header("Latest Arduino Session", level=2),
+            Paragraph(f"Collected: {data['collected_at']}"),
+            Paragraph(
+                f"Duration: {data['duration_seconds']} seconds"
+            ),
+            Paragraph(
+                f"Measurements: {len(data['readings'])}"
+            ),
+            Image(Picture.from_file("latest_graph.png")),
+            Header("Recorded Data Log", level=3)
+        ]
+
+        for reading in data["readings"]:
+            content.append(
+                Paragraph(
+                    f"Time: {reading['timestamp']}s | "
+                    f"Distance: {reading['distance']:.2f} cm"
+                )
+            )
+
+        return content
+
+    except (OSError, ValueError, KeyError, TypeError):
+        return [
+            Header("Latest Arduino Session", level=2),
+            Paragraph("No uploaded Arduino session is available yet.")
+        ]
+
 
 @route("/")
 def index(state: State) -> Page:
@@ -83,13 +116,14 @@ def index(state: State) -> Page:
             Header("Arduino Distance Logger", level=1),
             Paragraph("Welcome to the sensor telemetry dashboard."),
 
+            *latest_session_content(),
+
             Link("Configure Session", "/config"),
             Link("View History", "/history"),
             Link("About This Project", "/about"),
             Link("Reset Application", "/reset"),
         ],
     )
-
 
 
 @route("/config")
@@ -120,7 +154,6 @@ def config_page(state: State) -> Page:
     )
 
 
-
 @route("/run")
 def run_logger(
     state: State,
@@ -129,14 +162,13 @@ def run_logger(
     graph_style: str
 ) -> Page:
 
-    """This route collects the sensor data, and then calculates the line of 
+    """This route collects the sensor data, and then calculates the line of
     best fit by calling the helper function calculate_linear_regression,
     then creates a graph"""
 
     state.duration = float(duration)
     state.show_data_log = show_data_log
     state.graph_style = graph_style
-
 
     if state.duration <= 0:
         state.duration = 5.0
@@ -150,22 +182,18 @@ def run_logger(
         arduino = None
         print("Arduino connection failed. Using simulation.")
 
-
     time_array = []
     distances = []
 
-
     if arduino is None or not arduino.is_open:
 
+        time.sleep(1)
+        for i in range(1, int(state.duration) + 1):
 
-       time.sleep(1)
-       for i in range(1, int(state.duration) + 1):
-
-        time_array.append(float(i))
-        distances.append(random.randint(10, 15))
+            time_array.append(float(i))
+            distances.append(random.randint(10, 15))
 
     else:
-
 
         for i in range(1, int(state.duration) + 1):
 
@@ -190,12 +218,10 @@ def run_logger(
 
         arduino.close()
 
-
     if len(distances) < 2:
 
         time_array = [1.0, 2.0, 3.0]
         distances = [10.0, 14.0, 18.0]
-
 
     state.readings = []
 
@@ -205,15 +231,12 @@ def run_logger(
             SensorReading(timestamp=t, distance=d)
         )
 
-
     m, b = calculate_linear_regression(time_array, distances)
 
     predicted_line = []
 
     for t in time_array:
         predicted_line.append(m * t + b)
-
-    # Create the graph
 
     plt.figure()
 
@@ -247,7 +270,6 @@ def run_logger(
     plt.ylabel("Distance (cm)")
     plt.legend()
 
-
     state.graph_path = "graph.png"
     print(os.getcwd())
     print(os.path.exists(state.graph_path))
@@ -258,13 +280,11 @@ def run_logger(
     plt.close()
     print("Graph saved successfully!")
 
-
     state.status_message = (
         f"Collected {len(state.readings)} points successfully!"
     )
 
     return results_page(state)
-
 
 
 @route("/results")
@@ -288,9 +308,6 @@ def results_page(state: State) -> Page:
         show_picture = Image(Picture.from_file(state.graph_path))
     else:
         show_picture = "❌"
-
-
-
 
     return Page(
         state,
@@ -345,15 +362,15 @@ def about_page(state: State) -> Page:
         [
             Header("About This Project", level=1),
             Paragraph(
-    "A project using a real-life ultrasonic sensor hooked up to an "
-    "arduino. The ultrasonic sensor reports thousands of data "
-    "points per second, and the arduino converts those data points "
-    "into bytes, which are later converted into numerical data in "
-    "python. The duration that the arduino transmits data is solely "
-    "dependent on the user's input. This project uses NumPy for "
-    "plotting the line of best-fit, and MatPlotLib to visually "
-    "represent the graph using linear regression."
-),
+                "A project using a real-life ultrasonic sensor hooked up to an "
+                "arduino. The ultrasonic sensor reports thousands of data "
+                "points per second, and the arduino converts those data points "
+                "into bytes, which are later converted into numerical data in "
+                "python. The duration that the arduino transmits data is solely "
+                "dependent on the user's input. This project uses NumPy for "
+                "plotting the line of best-fit, and MatPlotLib to visually "
+                "represent the graph using linear regression."
+            ),
             Link("Home", "/"),
         ],
     )
@@ -415,7 +432,7 @@ assert_equal(results_page(State(
 )).state.show_data_log, True)
 
 
-#something something test deployment update for commit purposes let's see
+
 assert_equal(results_page(State(
     graph_path="graph.png",
     show_data_log=False
