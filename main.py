@@ -72,13 +72,15 @@ def calculate_linear_regression(
     return m, b
 
 
-# LOAD THE LATEST UPLOADED SESSION
-
 def latest_session_content():
 
     try:
         with open("latest_data.json", "r", encoding="utf-8") as file:
             data = json.load(file)
+
+        graph_url = (
+            "latest_graph.png?v=" + data["collected_at"]
+        )
 
         content = [
             Header("Latest Arduino Session", level=2),
@@ -93,7 +95,7 @@ def latest_session_content():
                 f"Measurements: {len(data['readings'])}"
             ),
 
-            Image(Picture.from_file("latest_graph.png")),
+            Image(graph_url),
 
             Header("Recorded Data Log", level=3)
         ]
@@ -206,8 +208,6 @@ def run_logger(
 
     start_time = time.time()
 
-    # COLLECT SIMULATED MEASUREMENTS
-
     while time.time() - start_time < state.duration:
 
         remaining_time = (
@@ -223,8 +223,6 @@ def run_logger(
         time_array.append(elapsed_time)
         distances.append(float(distance))
 
-    # STORE MEASUREMENTS IN STATE
-
     for t, d in zip(time_array, distances):
 
         state.readings.append(
@@ -233,8 +231,6 @@ def run_logger(
                 distance=d
             )
         )
-
-    # CALCULATE LINE OF BEST FIT
 
     m, b = calculate_linear_regression(
         time_array,
@@ -246,8 +242,6 @@ def run_logger(
     for t in time_array:
 
         predicted_line.append(m * t + b)
-
-    # CREATE GRAPH
 
     plt.figure()
 
@@ -290,8 +284,6 @@ def run_logger(
     plt.savefig(state.graph_path)
 
     plt.close()
-
-    # UPDATE STATUS
 
     state.status_message = (
         f"Collected {len(state.readings)} simulated points "
@@ -356,8 +348,6 @@ def results_page(state: State) -> Page:
     )
 
 
-# HISTORY PAGE
-
 @route("/history")
 def history_page(state: State) -> Page:
 
@@ -378,8 +368,6 @@ def history_page(state: State) -> Page:
         ],
     )
 
-
-# ABOUT PAGE
 
 @route("/about")
 def about_page(state: State) -> Page:
@@ -405,8 +393,6 @@ def about_page(state: State) -> Page:
     )
 
 
-# RESET PAGE
-
 @route("/reset")
 def reset_state(state: State) -> Page:
 
@@ -422,13 +408,9 @@ def reset_state(state: State) -> Page:
     return index(state)
 
 
-# START THE PROGRAM
-
 if __name__ == "__main__":
     start_server(State())
 
-
-# TESTS
 
 assert_equal(
     calculate_linear_regression([1, 2, 3], [10, 20, 30]),
