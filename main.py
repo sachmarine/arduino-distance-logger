@@ -7,7 +7,6 @@ import json
 from drafter import *
 import matplotlib.pyplot as plt
 import numpy as np
-import serial
 import random
 
 set_website_title("Arduino Distance Logger")
@@ -20,17 +19,18 @@ set_site_information(
         "CS1 Final Project 0_ Pick a Problem (1).pdf",
         "_CS1 Final Project 1_ Design.pdf"
     ],
-    links=["https://github.com/sachmarine/arduino-distance-logger"]
+    links=[
+        "https://github.com/sachmarine/arduino-distance-logger"
+    ]
 )
 
 hide_debug_information()
 set_website_framed(False)
 
 
-"""This program essentially consumes telemetry data from an arduino in bytes,
-converts it into numerical data, and uses the libraries of NumPy and MatPlotLib to plot a Distance vs Time array.
-The arduino has an ultrasonic sensor wired to it,
-that provides thousands of data points per second. The data is converted into arrays and then plotted."""
+"""This program generates simulated distance measurements,
+converts them into numerical data, and uses NumPy and Matplotlib
+to calculate and plot a Distance vs Time graph."""
 
 
 @dataclass
@@ -52,7 +52,7 @@ class State:
 def calculate_linear_regression(
     time_arr: list[float], dist_arr: list[float]
 ) -> tuple[float, float]:
-    """Here we are calculating the line of BEST FIT using NumPy linear regression, using time and distance data"""
+    """Calculate the line of best fit using NumPy linear regression."""
 
     t = np.array(time_arr)
     d = np.array(dist_arr)
@@ -62,12 +62,17 @@ def calculate_linear_regression(
     t = t[valid]
     d = d[valid]
 
+    if len(t) < 2:
+        raise ValueError(
+            "At least two valid measurements are required."
+        )
+
     m, b = np.polyfit(t, d, 1)
 
     return m, b
 
 
-# LOAD THE LATEST UPLOADED ARDUINO SESSION
+# LOAD THE LATEST UPLOADED SESSION
 
 def latest_session_content():
 
@@ -77,18 +82,24 @@ def latest_session_content():
 
         content = [
             Header("Latest Arduino Session", level=2),
+
             Paragraph(f"Collected: {data['collected_at']}"),
+
             Paragraph(
                 f"Duration: {data['duration_seconds']} seconds"
             ),
+
             Paragraph(
                 f"Measurements: {len(data['readings'])}"
             ),
+
             Image(Picture.from_file("latest_graph.png")),
+
             Header("Recorded Data Log", level=3)
         ]
 
         for reading in data["readings"]:
+
             content.append(
                 Paragraph(
                     f"Time: {reading['timestamp']}s | "
@@ -99,22 +110,26 @@ def latest_session_content():
         return content
 
     except (OSError, ValueError, KeyError, TypeError):
+
         return [
             Header("Latest Arduino Session", level=2),
-            Paragraph("No uploaded Arduino session is available yet.")
+            Paragraph("No uploaded session is available yet.")
         ]
 
 
 @route("/")
 def index(state: State) -> Page:
 
-    """This function essentially shows the home page and links to the other parts of the website."""
+    """Display the homepage and links to other pages."""
 
     return Page(
         state,
         [
             Header("Arduino Distance Logger", level=1),
-            Paragraph("Welcome to the sensor telemetry dashboard."),
+
+            Paragraph(
+                "Welcome to the sensor telemetry dashboard."
+            ),
 
             *latest_session_content(),
 
@@ -128,7 +143,8 @@ def index(state: State) -> Page:
 
 @route("/config")
 def config_page(state: State) -> Page:
-    """This page let's the user choose how long to collect data and to display it, using an input (duration)"""
+
+    """Allow the user to choose the collection duration and graph style."""
 
     return Page(
         state,
@@ -136,12 +152,18 @@ def config_page(state: State) -> Page:
             Header("Session Setup", level=1),
 
             Paragraph("Enter the duration in seconds:"),
+
             TextBox("duration", str(state.duration)),
 
             Paragraph("Display recorded data log?"),
-            CheckBox("show_data_log", state.show_data_log),
+
+            CheckBox(
+                "show_data_log",
+                state.show_data_log
+            ),
 
             Paragraph("Choose graph style:"),
+
             SelectBox(
                 "graph_style",
                 ["Scatter", "Line"],
@@ -149,6 +171,7 @@ def config_page(state: State) -> Page:
             ),
 
             Button("Run Logger", "/run"),
+
             Link("Back To Home", "/"),
         ],
     )
@@ -162,81 +185,69 @@ def run_logger(
     graph_style: str
 ) -> Page:
 
-    """This route collects the sensor data, and then calculates the line of
-    best fit by calling the helper function calculate_linear_regression,
-    then creates a graph"""
+    """Generate simulated measurements for the selected duration."""
 
-    state.duration = float(duration)
-    state.show_data_log = show_data_log
-    state.graph_style = graph_style
+    try:
+        state.duration = float(duration)
+
+    except (ValueError, TypeError):
+        state.duration = 5.0
 
     if state.duration <= 0:
         state.duration = 5.0
 
-    start_time = float(time.time())
-
-    try:
-        arduino = serial.Serial("COM5", 9600)
-
-    except Exception as error:
-        arduino = None
-        print("Arduino connection failed. Using simulation.")
+    state.show_data_log = show_data_log
+    state.graph_style = graph_style
 
     time_array = []
     distances = []
 
-    if arduino is None or not arduino.is_open:
-
-        time.sleep(1)
-        for i in range(1, int(state.duration) + 1):
-
-            time_array.append(float(i))
-            distances.append(random.randint(10, 15))
-
-    else:
-
-        for i in range(1, int(state.duration) + 1):
-
-            target_time = start_time + i
-
-            while time.time() < target_time:
-                time.sleep(0.01)
-
-            raw_data = arduino.readline()
-
-            if raw_data:
-
-                try:
-                    distance_str = raw_data.decode("utf-8").strip()
-
-                    if distance_str:
-                        distances.append(float(distance_str))
-                        time_array.append(float(i))
-
-                except ValueError:
-                    continue
-
-        arduino.close()
-
-    if len(distances) < 2:
-
-        time_array = [1.0, 2.0, 3.0]
-        distances = [10.0, 14.0, 18.0]
-
     state.readings = []
+
+    start_time = time.time()
+
+    # COLLECT SIMULATED MEASUREMENTS
+
+    while time.time() - start_time < state.duration:
+
+        remaining_time = (
+            state.duration - (time.time() - start_time)
+        )
+
+        time.sleep(min(1.0, remaining_time))
+
+        elapsed_time = time.time() - start_time
+
+        distance = random.randint(10, 100)
+
+        time_array.append(elapsed_time)
+        distances.append(float(distance))
+
+    # STORE MEASUREMENTS IN STATE
 
     for t, d in zip(time_array, distances):
 
         state.readings.append(
-            SensorReading(timestamp=t, distance=d)
+            SensorReading(
+                timestamp=round(t, 2),
+                distance=d
+            )
         )
 
-    m, b = calculate_linear_regression(time_array, distances)
+    # CALCULATE LINE OF BEST FIT
+
+    m, b = calculate_linear_regression(
+        time_array,
+        distances
+    )
 
     predicted_line = []
 
     for t in time_array:
+
         predicted_line.append(m * t + b)
+
+    # CREATE GRAPH
 
     plt.figure()
 
@@ -246,7 +257,7 @@ def run_logger(
             time_array,
             distances,
             color="blue",
-            label="Data"
+            label="Simulated Data"
         )
 
     else:
@@ -255,7 +266,8 @@ def run_logger(
             time_array,
             distances,
             color="blue",
-            label="Data"
+            marker="o",
+            label="Simulated Data"
         )
 
     plt.plot(
@@ -263,25 +275,28 @@ def run_logger(
         predicted_line,
         color="red",
         linestyle="--",
-        label=f"y = {m:.2f}x+ {b:.2f} "
+        label=f"y = {m:.2f}x + {b:.2f}"
     )
 
     plt.xlabel("Time (s)")
     plt.ylabel("Distance (cm)")
+
+    plt.title("Simulated Distance Measurements")
+
     plt.legend()
 
     state.graph_path = "graph.png"
-    print(os.getcwd())
-    print(os.path.exists(state.graph_path))
+
     plt.savefig(state.graph_path)
-    print(os.path.exists(state.graph_path))
-    print(os.path.abspath(state.graph_path))
-    print(os.listdir("."))
+
     plt.close()
-    print("Graph saved successfully!")
+
+    # UPDATE STATUS
 
     state.status_message = (
-        f"Collected {len(state.readings)} points successfully!"
+        f"Collected {len(state.readings)} simulated points "
+        f"over approximately {state.duration} seconds. "
+        "These are fabricated measurements."
     )
 
     return results_page(state)
@@ -290,7 +305,8 @@ def run_logger(
 @route("/results")
 def results_page(state: State) -> Page:
 
-    """Show the graph and the recorded sensor data."""
+    """Show the graph and recorded simulated measurements."""
+
     reading_paragraphs = []
 
     if state.show_data_log:
@@ -302,17 +318,27 @@ def results_page(state: State) -> Page:
                 f"Distance: {reading.distance:.2f} cm"
             )
 
-            reading_paragraphs.append(Paragraph(text))
+            reading_paragraphs.append(
+                Paragraph(text)
+            )
 
-    if os.path.exists(state.graph_path):
-        show_picture = Image(Picture.from_file(state.graph_path))
+    if state.graph_path and os.path.exists(state.graph_path):
+
+        show_picture = Image(
+            Picture.from_file(state.graph_path)
+        )
+
     else:
+
         show_picture = "❌"
 
     return Page(
         state,
         [
             Header("Results & Graph", level=1),
+
+            Paragraph("SIMULATED DATA"),
+
             Paragraph(state.status_message),
 
             show_picture,
@@ -335,16 +361,19 @@ def results_page(state: State) -> Page:
 @route("/history")
 def history_page(state: State) -> Page:
 
-    """This shows how many sensor readings have been collected so far."""
+    """Show how many sensor readings have been collected."""
 
     return Page(
         state,
         [
             Header("History", level=1),
+
             Paragraph(
-                f"Total readings currently in state: {len(state.readings)} \n"
+                f"Total readings currently in state: "
+                f"{len(state.readings)}\n"
                 "If you want to go back to 0, reset the application..."
             ),
+
             Link("Home", "/"),
         ],
     )
@@ -355,22 +384,22 @@ def history_page(state: State) -> Page:
 @route("/about")
 def about_page(state: State) -> Page:
 
-    """This page explains what the project is about and how the sensor data is used."""
+    """Explain the project and how the measurements are analyzed."""
 
     return Page(
         state,
         [
             Header("About This Project", level=1),
+
             Paragraph(
-                "A project using a real-life ultrasonic sensor hooked up to an "
-                "arduino. The ultrasonic sensor reports thousands of data "
-                "points per second, and the arduino converts those data points "
-                "into bytes, which are later converted into numerical data in "
-                "python. The duration that the arduino transmits data is solely "
-                "dependent on the user's input. This project uses NumPy for "
-                "plotting the line of best-fit, and MatPlotLib to visually "
-                "represent the graph using linear regression."
+                "A project demonstrating distance measurements from an "
+                "ultrasonic sensor. This version uses simulated measurements "
+                "to demonstrate the data collection and analysis process. "
+                "The duration of data collection is dependent on the user's "
+                "input. This project uses NumPy to calculate the line of "
+                "best fit and Matplotlib to visually represent the graph."
             ),
+
             Link("Home", "/"),
         ],
     )
@@ -381,7 +410,7 @@ def about_page(state: State) -> Page:
 @route("/reset")
 def reset_state(state: State) -> Page:
 
-    """This page allows the user to reset the settings and clear all of the collected data within state."""
+    """Reset application settings and clear collected data."""
 
     state.duration = 5.0
     state.status_message = "Reset."
@@ -399,10 +428,22 @@ if __name__ == "__main__":
     start_server(State())
 
 
-assert_equal(calculate_linear_regression([1, 2, 3], [10, 20, 30]), (10.0, 0.0))
-assert_equal(calculate_linear_regression([1, 2, 3], [3, 5, 7]), (2.0, 1.0))
+# TESTS
 
-assert_equal(calculate_linear_regression([1, 2, 3], [5, 5, 5]), (0.0, 5.0))
+assert_equal(
+    calculate_linear_regression([1, 2, 3], [10, 20, 30]),
+    (10.0, 0.0)
+)
+
+assert_equal(
+    calculate_linear_regression([1, 2, 3], [3, 5, 7]),
+    (2.0, 1.0)
+)
+
+assert_equal(
+    calculate_linear_regression([1, 2, 3], [5, 5, 5]),
+    (0.0, 5.0)
+)
 
 assert_equal(index(State()).state, State())
 assert_equal(config_page(State()).state, State())
@@ -426,14 +467,18 @@ assert_equal(test_state.graph_path, "")
 assert_equal(test_state.show_data_log, True)
 assert_equal(test_state.graph_style, "Scatter")
 
-assert_equal(results_page(State(
-    graph_path="graph.png",
-    show_data_log=True
-)).state.show_data_log, True)
+assert_equal(
+    results_page(State(
+        graph_path="graph.png",
+        show_data_log=True
+    )).state.show_data_log,
+    True
+)
 
-
-
-assert_equal(results_page(State(
-    graph_path="graph.png",
-    show_data_log=False
-)).state.show_data_log, False)
+assert_equal(
+    results_page(State(
+        graph_path="graph.png",
+        show_data_log=False
+    )).state.show_data_log,
+    False
+)
